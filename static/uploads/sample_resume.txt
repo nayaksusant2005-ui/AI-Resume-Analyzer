@@ -1,0 +1,41 @@
+SUBHAM BEJ
+Software Developer
+
+Email: subham@example.com
+Phone: +91 9876543210
+LinkedIn: linkedin.com/in/subham
+GitHub: github.com/subham
+
+PROFESSIONAL SUMMARY
+Passionate software developer skilled in Python, Flask, Machine Learning, Data Analysis, HTML, CSS and JavaScript.
+
+TECHNICAL SKILLS
+• Python
+• Flask
+• SQL
+• Machine Learning
+• Git
+• HTML
+• CSS
+• JavaScript
+• Pandas
+• Scikit-Learn
+
+PROJECTS
+
+AI Resume Analyzer
+Developed a web application that analyzes resumes, calculates ATS scores and identifies missing skills.
+
+Car Price Predictor
+Built a machine learning model to predict vehicle prices based on historical data.
+
+EDUCATION
+Bachelor of Computer Applications
+XYZ University
+
+CERTIFICATIONS
+Python Programming
+Machine Learning
+
+LANGUAGES
+English, Hindi

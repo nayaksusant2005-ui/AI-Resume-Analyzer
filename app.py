@@ -1,0 +1,238 @@
+from flask import Flask, render_template, request, send_file
+import os
+import csv
+from io import BytesIO
+from reportlab.pdfgen import canvas
+
+from utils.parser import extract_text
+from utils.ats import calculate_ats_score
+
+app = Flask(__name__)
+
+latest_report = {}
+
+UPLOAD_FOLDER = "static/uploads"
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+
+@app.route("/upload", methods=["POST"])
+def upload():
+
+    global latest_report
+
+    file = request.files["resume"]
+
+    if file:
+
+        filepath = os.path.join(
+            app.config["UPLOAD_FOLDER"],
+            file.filename
+        )
+
+        file.save(filepath)
+
+        resume_text = extract_text(filepath)
+
+        skills = []
+
+        with open("skills.csv", "r") as f:
+            reader = csv.reader(f)
+            next(reader)
+
+            for row in reader:
+                skills.append(row[0])
+
+        found_skills = []
+
+        for skill in skills:
+            if skill.lower() in resume_text.lower():
+                found_skills.append(skill)
+
+        missing_skills = []
+
+        for skill in skills:
+            if skill not in found_skills:
+                missing_skills.append(skill)
+
+        ats_score = calculate_ats_score(
+            len(found_skills),
+            len(skills)
+        )
+
+        if ats_score >= 90:
+            category = "Excellent"
+            rating = "A+"
+            strength = "Excellent"
+
+        elif ats_score >= 70:
+            category = "Strong"
+            rating = "A"
+            strength = "Strong"
+
+        elif ats_score >= 50:
+            category = "Average"
+            rating = "B"
+            strength = "Average"
+
+        else:
+            category = "Weak"
+            rating = "C"
+            strength = "Weak"
+
+        suggestions = []
+
+        if ats_score < 50:
+            suggestions.append("Add more technical skills")
+            suggestions.append("Include projects")
+            suggestions.append("Improve resume content")
+
+        elif ats_score < 80:
+            suggestions.append("Add missing skills")
+            suggestions.append("Include certifications")
+
+        else:
+            suggestions.append("Excellent Resume")
+            suggestions.append("Ready for Internship Applications")
+            suggestions.append("Add More Projects")
+
+        latest_report = {
+            "ats_score": ats_score,
+            "strength": strength,
+            "category": category,
+            "rating": rating,
+            "skills": found_skills,
+            "missing_skills": missing_skills,
+            "suggestions": suggestions
+        }
+
+        return render_template(
+            "result.html",
+            ats_score=ats_score,
+            skills=found_skills,
+            missing_skills=missing_skills,
+            suggestions=suggestions,
+            category=category,
+            rating=rating,
+            strength=strength,
+            total_found=len(found_skills),
+            total_missing=len(missing_skills)
+        )
+
+    return "Upload Failed"
+
+
+@app.route("/download-report")
+def download_report():
+
+    global latest_report
+
+    buffer = BytesIO()
+
+    pdf = canvas.Canvas(buffer)
+
+    pdf.setTitle("ATS Resume Report")
+
+    pdf.setFont("Helvetica-Bold", 20)
+    pdf.drawString(140, 800, "AI Resume Analyzer Report")
+
+    pdf.line(50, 785, 550, 785)
+
+    pdf.setFont("Helvetica-Bold", 14)
+
+    pdf.drawString(50, 750, "ATS Score:")
+    pdf.drawString(
+        200,
+        750,
+        str(latest_report.get("ats_score", 0)) + "%"
+    )
+
+    pdf.drawString(50, 720, "Resume Strength:")
+    pdf.drawString(
+        200,
+        720,
+        latest_report.get("strength", "")
+    )
+
+    pdf.drawString(50, 690, "Category:")
+    pdf.drawString(
+        200,
+        690,
+        latest_report.get("category", "")
+    )
+
+    pdf.drawString(50, 660, "Rating:")
+    pdf.drawString(
+        200,
+        660,
+        latest_report.get("rating", "")
+    )
+
+    y = 610
+
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(50, y, "Detected Skills")
+
+    y -= 25
+
+    pdf.setFont("Helvetica", 12)
+
+    for skill in latest_report.get("skills", []):
+        pdf.drawString(70, y, f"- {skill}")
+        y -= 18
+
+    y -= 10
+
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(50, y, "Missing Skills")
+
+    y -= 25
+
+    pdf.setFont("Helvetica", 12)
+
+    for skill in latest_report.get("missing_skills", []):
+        pdf.drawString(70, y, f"- {skill}")
+        y -= 18
+
+    y -= 10
+
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(50, y, "Suggestions")
+
+    y -= 25
+
+    pdf.setFont("Helvetica", 12)
+
+    for item in latest_report.get("suggestions", []):
+        pdf.drawString(70, y, f"- {item}")
+        y -= 18
+
+    pdf.line(50, 80, 550, 80)
+
+    pdf.setFont("Helvetica-Oblique", 10)
+    pdf.drawString(
+        180,
+        60,
+        "Generated by AI Resume Analyzer"
+    )
+
+    pdf.save()
+
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name="ATS_Resume_Report.pdf",
+        mimetype="application/pdf"
+    )
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
